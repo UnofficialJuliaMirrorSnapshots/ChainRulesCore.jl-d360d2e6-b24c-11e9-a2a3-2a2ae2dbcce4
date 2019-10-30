@@ -106,26 +106,26 @@ Base.iterate(::Zero, ::Any) = nothing
 
 
 #####
-##### `DNE`
+##### `DoesNotExist`
 #####
 
 """
-    DNE()
+    DoesNotExist()
 
 This differential indicates that the derivative Does Not Exist (D.N.E).
 This is not the cast that it is not implemented, but rather that it mathematically
 is not defined.
 """
-struct DNE <: AbstractDifferential end
+struct DoesNotExist <: AbstractDifferential end
 
-function extern(x::DNE)
+function extern(x::DoesNotExist)
     throw(ArgumentError("Derivative does not exit. Cannot be converted to an external type."))
 end
 
-Base.Broadcast.broadcastable(::DNE) = Ref(DNE())
+Base.Broadcast.broadcastable(::DoesNotExist) = Ref(DoesNotExist())
 
-Base.iterate(x::DNE) = (x, nothing)
-Base.iterate(::DNE, ::Any) = nothing
+Base.iterate(x::DoesNotExist) = (x, nothing)
+Base.iterate(::DoesNotExist, ::Any) = nothing
 
 #####
 ##### `One`
@@ -212,8 +212,17 @@ struct Thunk{F} <: AbstractThunk
     f::F
 end
 
+
+"""
+    @thunk expr
+
+Define a [`Thunk`](@ref) wrapping the `expr`, to lazily defer its evaluation.
+"""
 macro thunk(body)
-    return :(Thunk(() -> $(esc(body))))
+    # Basically `:(Thunk(() -> $(esc(body))))` but use the location where it is defined.
+    # so we get useful stack traces if it errors.
+    func = Expr(:->, Expr(:tuple), Expr(:block, __source__, body))
+    return :(Thunk($(esc(func))))
 end
 
 # have to define this here after `@thunk` and `Thunk` is defined
@@ -261,7 +270,7 @@ Constant for the reverse-mode derivative with respect to a structure that has no
 The most notable use for this is for the reverse-mode derivative with respect to the
 function itself, when that function is not a closure.
 """
-const NO_FIELDS = DNE()
+const NO_FIELDS = DoesNotExist()
 
 """
     refine_differential(𝒟::Type, der)
